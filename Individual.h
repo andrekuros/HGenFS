@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <vector>
 #include <array>
 #include <random>
@@ -9,7 +10,7 @@ class Individual
 
 public:
 	
-	Individual(std::vector<std::vector<double>>* timeTruck, std::vector<std::vector<double>>* timeDrone, double droneEndurance, int size, double seed);
+	Individual(std::vector<std::vector<double>>* timeTruck, std::vector<std::vector<double>>* timeDrone, double droneEndurance, int dronesAvailable, int size, double seed);
 	std::vector<int> solution;
 	std::vector<int> means;
 	std::vector<std::vector<int>> dronePath;
@@ -17,6 +18,7 @@ public:
 	double fit{ -1 };
 	double objFunction{ -1 };
 	double droneEndurance;
+	int dronesAvailable;
 	int size;
 	bool CreateDronePath();
 	double getSyncDiff(int solIdx);

@@ -7,7 +7,11 @@
 #include <sstream>
 #include <fstream>
 #include "individual.h"
+#include <thread>        
+#include <future>
+#include <mutex>
 
+std::mutex mtx;
 
 class node
 {
@@ -23,8 +27,8 @@ class QGen
 {
 public:
 
-	QGen(int populationSize, double mutationRate, double csRate, int numVariables, int varMin, int varMax, int seed);
-
+	QGen(int populationSize, double mutationRate, double csRate, int numVariables, int varMin, int varMax, int seed, std::string problemPath);
+	~QGen();
 	void genFirstPopulation(std::string option);
 	void processPopulation(std::string problemType);
 
@@ -40,8 +44,10 @@ public:
 	int numVariables;
 	std::string init;
 	int seed;
+	std::string problemPath;
 	double truckProportion;
 	double droneEndurance;
+	int dronesAvailable;
 
 	std::random_device rd;
 	std::mt19937 rndGen;
