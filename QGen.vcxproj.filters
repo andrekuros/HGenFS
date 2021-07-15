@@ -15,18 +15,18 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="QGen.cpp">
+    <ClCompile Include="QLGen.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Individual.cpp">
+    <ClCompile Include="individual.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="QGen.h">
+    <ClInclude Include="QLGen.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Individual.h">
+    <ClInclude Include="individual.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

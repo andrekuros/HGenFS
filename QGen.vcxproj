@@ -110,12 +110,12 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Individual.cpp" />
-    <ClCompile Include="QGen.cpp" />
+    <ClCompile Include="individual.cpp" />
+    <ClCompile Include="QLGen.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Individual.h" />
-    <ClInclude Include="QGen.h" />
+    <ClInclude Include="individual.h" />
+    <ClInclude Include="QLGen.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

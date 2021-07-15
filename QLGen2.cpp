@@ -1,0 +1,762 @@
+﻿#include "QLGen.h"
+
+using namespace std;
+
+QLGen::QLGen(int populationSize, int numVariables, int varMin, int varMax, int seed, std::string problem, std::string problemPath) :
+	populationSize(populationSize), numVariables(numVariables),
+	varMin(varMin), varMax(varMax), seed(seed), problemPath(problemPath), problem(problem)
+{		
+		
+	nodes.resize(numVariables);
+	newPop = new std::vector<Individual*>;
+	evaluatedPop = new std::vector<Individual*>;
+	newPop->resize(populationSize);
+	evaluatedPop->resize(populationSize);
+
+	if (eliteSize < 5) eliteSize = 5;
+
+	timeTruck = new std::vector<std::vector<double>>;
+	timeDrone = new std::vector<std::vector<double>>;
+
+	for (auto& ind : *newPop)
+		ind = new Individual(timeTruck, timeDrone, droneEndurance, dronesAvailable, numVariables, rndGen());
+
+	for (auto& ind : *evaluatedPop)
+		ind = new Individual(timeTruck, timeDrone, droneEndurance, dronesAvailable, numVariables, rndGen());
+
+	for (int i = 0; i < populationSize; i++)
+	{
+		tournamentGroup.push_back(i);
+	}
+	tournamentSize = (int)(populationSize * tournamentProportion);
+
+
+	//LOAD Costs Truck	
+	std::ifstream dataTruck(problemPath + problem + "/tau.csv");
+	if (dataTruck.is_open())
+	{
+		std::string line;
+		while (std::getline(dataTruck, line))
+		{
+			std::string delimiter = ",";
+			size_t pos = 0;
+			std::string data;
+
+			std::vector<double> row;
+			while ((pos = line.find(delimiter)) != std::string::npos)
+			{
+				data = line.substr(0, pos);
+				row.emplace_back(std::stod(data));
+				line.erase(0, pos + delimiter.length());
+			}
+			row.emplace_back(std::stod(line));
+			timeTruck->emplace_back(row);
+		}
+	}
+	else
+	{
+		std::cout << "Wrong File TrackCost: " << problemPath + problem + "/tau.csv";
+	}
+
+	//LOAD Costs Drone	
+	std::ifstream dataDrone(problemPath + problem + "/tauprime.csv");
+	if (dataDrone.is_open())
+	{
+		std::string line;
+		while (std::getline(dataDrone, line))
+		{
+			std::string delimiter = ",";
+			size_t pos = 0;
+			std::string data;
+
+			std::vector<double> row;
+			while ((pos = line.find(delimiter)) != std::string::npos)
+			{
+				data = line.substr(0, pos);
+				row.emplace_back(std::stod(data));
+				line.erase(0, pos + delimiter.length());
+			}
+			row.emplace_back(std::stod(line));
+			timeDrone->emplace_back(row);
+		}
+	}
+
+	//LOAD Nodes and Drone data	
+	std::ifstream dataNodes(problemPath + problem + "/nodes.csv");
+	if (dataNodes.is_open())
+	{
+		std::string line;
+		while (std::getline(dataNodes, line))
+		{
+			std::string delimiter = ",";
+			size_t pos = 0;
+			std::string data;
+
+			std::vector<double> row;
+
+			while ((pos = line.find(delimiter)) != std::string::npos)
+			{
+				data = line.substr(0, pos);
+				row.emplace_back(std::stod(data));
+				line.erase(0, pos + delimiter.length());
+			}
+			row.emplace_back(std::stod(line));
+
+			int n = (int)(row[0]);
+			if (droneSpeed == -1)
+			{
+				droneSpeed = row[3];
+				nodes[n].hasDroneAcess = false;
+			}
+			else
+			{
+				nodes[n].hasDroneAcess = !row[3];
+				
+			}
+
+			nodes[n].x = row[1];
+			nodes[n].y = row[2];
+		}
+		nodes.back().hasDroneAcess = false;
+		nodes[numVariables - 1].hasDroneAcess = false;
+	}
+};
+
+/*std::pair<double, double> QLGen::fitFromSolutionTable(Individual* ind)
+{
+	auto search = solutionTable.find(ind->code);
+	return search == solutionTable.end() ? std::make_pair(-1.0, 0.0) : search->second;
+}*/
+
+void QLGen::genFirstPopulation(std::string option)
+{
+	init = option;
+	rndGen.seed(seed);
+
+	if (init == "random")
+	{
+		for (auto& ind : *newPop)
+		{
+			for (int i = 0; i < numVariables; i++)
+			{
+				ind->solution[i] = i; //soltest[i];//
+				ind->means[i] = (rndGen() % 2) * nodes[i].hasDroneAcess;
+			}			
+
+			//Shuffle the sequence of the main path 
+			std::shuffle(ind->solution.begin() + 1, ind->solution.end() - 1, rndGen);
+			//ind->solution = { 0, 4, 8, 2, 9, 10, 3, 1, 7, 5, 6, 11 };
+			ind->CreateDronePath(dronePathSyncSearch, pathCheckEndurance);
+		}
+
+		for (auto& ind : *evaluatedPop)
+		{
+			for (int i = 0; i < numVariables; i++)
+			{
+				ind->solution[i] = i; //soltest[i];//
+				ind->means[i] = (rndGen() % 2) * nodes[i].hasDroneAcess;
+			}	
+
+			//Shuffle the sequence of the main path 
+			std::shuffle(ind->solution.begin() + 1, ind->solution.end() - 1, rndGen);
+			//ind->solution = { 0, 4, 8, 2, 9, 10, 3, 1, 7, 5, 6, 11 };
+			ind->CreateDronePath(dronePathSyncSearch, pathCheckEndurance);
+		}
+		
+	}
+}
+
+void QLGen::processInd(Individual* ind)
+{
+	double truckTimeSum = 0;
+	double waitTimeSum = 0;
+	double totalPenaulty = 0;
+
+	ind->penaulty = 0;
+
+	
+	int prec = 0;
+	ind->syncLoss = 0;
+	for (int i = 1; i < ind->solution.size(); i++)
+	{
+
+		if (ind->means[i] == 0) //Truck Delivery
+		{
+			truckTimeSum += (*timeTruck)[prec][ind->solution[i]];
+			prec = ind->solution[i];
+		}
+		else
+		{
+			waitTimeSum += ind->getSyncDiff(i).first;
+		}
+	}
+	//truckTimeSum += (*timeTruck)[prec][numVariables - 1];
+	ind->truckTime = truckTimeSum;	
+	ind->fit = truckTimeSum + waitTimeSum + ind->penaulty;
+}
+
+
+
+
+void QLGen::processPopulation(std::string problemType)
+{
+	
+	for (auto& ind : *newPop)
+	{		
+		processInd(ind);
+
+		if (localSearchNum > 0)
+		{
+			localSearch(ind, localSearchNum[0],localSearchNum[1], localSearchParams[0], localSearchParams[1]);
+		}
+	}
+
+	std::vector<Individual*>* auxPointer = evaluatedPop;
+	evaluatedPop = newPop; //new population become evaluated	
+	newPop = auxPointer;
+
+	auto sortRuleLambda = [](Individual* const& ind1, Individual* const& ind2) {return (ind1->fit < ind2->fit); };
+
+	std::sort(evaluatedPop->begin(), evaluatedPop->end(), sortRuleLambda);
+}
+
+Individual* QLGen::selection(std::string method, Individual* anotherParent)
+{
+	if (method == "tournament")
+	{
+		//std::shuffle(tournamentGroup.begin(), tournamentGroup.end(), rndGen);
+		std::sort(tournamentGroup.begin(), tournamentGroup.begin() + tournamentSize);
+		double rnd = (double)rndGen();
+
+		for (int i = 0; i < tournamentSize - 1; i++)
+		{
+			if (rnd / RAND_MAX < tournamentP)
+			{
+				if ((*evaluatedPop)[tournamentGroup[i]] != anotherParent)
+					return (*evaluatedPop)[tournamentGroup[i]];
+			}
+		}
+		return (*evaluatedPop)[tournamentGroup[tournamentSize - 1]]; //Last in the tournament is selected
+	}
+
+	if (method == "roullete")
+	{		
+		double rnd = (double)rndGen();
+		int randPos = (int)rnd % tournamentGroup.size();
+		
+		for (int i = randPos; i < tournamentSize -1; i++)
+		{			
+			double rnd2 = (double)rndGen();
+			if (rnd / RAND_MAX < (1 - (best - (*evaluatedPop)[i]->fit))/fitRange);
+			{
+				if ((*evaluatedPop)[i] != anotherParent)
+					return (*evaluatedPop)[i];
+			}
+		}
+		return (*evaluatedPop)[tournamentSize - 1]; //Last in the tournament is selected
+	}
+	return nullptr;
+}
+
+void QLGen::localSearch(Individual* ind, int ns, int nd,  bool checkPath, bool checkEndurance )
+{
+		
+	for (int i = 0; i < ns; i++)
+	{
+		double rnd = (double)rndGen();
+		int randIdx = (int)rnd % (numVariables - 2) + 1; //1 -10
+
+		double rnd2 = (double)rndGen();
+		int randIdx2 = (int)rnd % (numVariables - 2) + 1; //1 -10			
+
+		//Swap Search			
+		std::vector<int> bakMeans = ind->means;
+		std::vector<std::vector<int>> baKdronePath = ind->dronePath; //C
+
+		double bakFit = ind->fit;
+		int bak = ind->solution[randIdx2];
+
+		ind->solution[randIdx2] = ind->solution[randIdx];
+		ind->solution[randIdx] = bak;
+		ind->CreateDronePath(checkPath, checkEndurance);
+		processInd(ind);
+
+		if (bakFit < ind->fit)
+		{
+			for (int j = 0; j < nd; j++)
+			{
+				double rnd3 = (double)rndGen();
+				int randC = (int)rnd3 % (numVariables - 2) + 1; //1 -10
+
+				if (ind->means[randC] == 1)
+				{
+					ind->means[randC] = 0;
+				}
+				else
+				{
+					if (nodes[randC]->hasDroneAcess == true)
+					{
+						ind->means[randC] = 1;
+					}
+					else
+					{
+						continue;
+					}
+				}
+				ind->CreateDronePath(checkPath, checkEndurance);
+				processInd(ind);
+
+				if ( ind->fit < bakFit)
+				{
+					break;
+				}
+
+			}
+		}
+	
+		
+		if (bakFit < ind->fit)
+		{
+			ind->means = bakMeans;
+			ind->dronePath = baKdronePath;
+			ind->solution[randIdx] = ind->solution[randIdx2];
+			ind->solution[randIdx2] = bak;			
+			processInd(ind);
+		}
+		else
+		{
+			break;
+		}
+		
+		
+	}
+		
+}
+
+
+void QLGen::childrenFromCrossOver(int child1, int child2, std::string type, std::string selectionType)
+{	
+	if (type == "swap")
+	{
+		Individual* parent1 = selection(selectionType);
+		Individual* parent2 = selection(selectionType, parent1);
+
+		(*newPop)[child1]->solution = parent1->solution;
+		(*newPop)[child1]->means = parent2->means;		
+		(*newPop)[child1]->CreateDronePath(dronePathSyncSearch, pathCheckEndurance);
+						
+		(*newPop)[child2]->solution = parent2->solution;
+		(*newPop)[child2]->means = parent1->means;
+		(*newPop)[child2]->CreateDronePath(dronePathSyncSearch, pathCheckEndurance);
+	}
+
+	if (type == "mix1")
+	{		
+		Individual* parent1 = selection(selectionType);
+		Individual* parent2 = selection(selectionType, parent1);
+		
+		int cut1 = (rndGen()% (parent1->solution.size() - 3)) + 1;	
+		int cut2 = (rndGen() % (parent1->solution.size() - cut1 - 1)) + cut1 + 1;
+		//std::cout << "\n" << cut1 <<" | " << cut2 << " c1 " << child1 << " c2 " << child2;
+		//Define if the crossover will be in truck ou drone path
+		int isTruck = 0;// rndGen() % 2;
+
+		std::set<int, greater<int>> included1;
+		std::set<int, greater<int>> included2;
+
+		//(*newPop)[child1]->printSol();
+		//(*newPop)[child2]->printSol();
+		
+		//Adding truck or drone path in the Children
+		for (int i = cut1; i <= cut2; i++)
+		{			
+			if (parent1->means[i] == isTruck)
+			{
+				(*newPop)[child1]->solution[i] = parent1->solution[i];
+				(*newPop)[child1]->means[i] = 0;
+				included1.insert(parent1->solution[i]);
+			}
+			else
+			{
+				(*newPop)[child1]->solution[i] = -1;
+				(*newPop)[child1]->means[i] = 1;
+			}
+			
+			if (parent2->means[i] == isTruck)
+			{
+				(*newPop)[child2]->solution[i] = parent2->solution[i];
+				(*newPop)[child2]->means[i] = 0;
+				included2.insert(parent2->solution[i]);
+			}
+			else
+			{
+			(*newPop)[child2]->solution[i] = -1;
+			(*newPop)[child2]->means[i] = 1;
+			}
+		}
+		int p1counter = 0;
+		int p2counter = 0;
+
+		//std::cout << "\nMix2";
+		//(*newPop)[child1]->printSol();
+		//(*newPop)[child2]->printSol();
+
+		//Completing paths using another parents sequence
+		for (int i = 1; i < cut1; i++)
+		{
+
+			while (included1.find(parent2->solution[++p2counter]) != included1.end());
+			(*newPop)[child1]->solution[i] = parent2->solution[p2counter];
+			(*newPop)[child1]->means[i] = parent2->means[p2counter];
+			included1.insert(parent2->solution[p2counter]);
+
+			while (included2.find(parent1->solution[++p1counter]) != included2.end());
+			(*newPop)[child2]->solution[i] = parent1->solution[p1counter];
+			(*newPop)[child2]->means[i] = parent1->means[p1counter];
+			included2.insert(parent1->solution[p1counter]);
+		}
+		//std::cout << "\nMix3" ;		
+		//(*newPop)[child1]->printSol();
+		//(*newPop)[child2]->printSol();
+		for (int i = cut1; i <= cut2; i++)
+		{
+			if ((*newPop)[child1]->solution[i] == -1)//Not filled before
+			{
+				while (included1.find(parent2->solution[++p2counter]) != included1.end());
+				(*newPop)[child1]->solution[i] = parent2->solution[p2counter];
+				(*newPop)[child1]->means[i] = parent2->means[p2counter];
+				included1.insert(parent2->solution[p2counter]);
+			}
+
+			if ((*newPop)[child2]->solution[i] == -1)//Not filled before
+			{
+
+				while (included2.find(parent1->solution[++p1counter]) != included2.end());
+				(*newPop)[child2]->solution[i] = parent1->solution[p1counter];
+				(*newPop)[child2]->means[i] = parent1->means[p1counter];
+				included2.insert(parent1->solution[p1counter]);
+			}
+		}
+		//std::cout << "\nMix4" ;
+		//(*newPop)[child1]->printSol();
+		//(*newPop)[child2]->printSol();
+		for (int i = cut2 + 1; i < parent1->solution.size() - 1; i++)
+		{
+
+			while (included1.find(parent2->solution[++p2counter]) != included1.end());
+			(*newPop)[child1]->solution[i] = parent2->solution[p2counter];
+			(*newPop)[child1]->means[i] = parent2->means[p2counter];
+			included1.insert(parent2->solution[p2counter]);
+
+
+			while (included2.find(parent1->solution[++p1counter]) != included2.end());
+			(*newPop)[child2]->solution[i] = parent1->solution[p1counter];
+			(*newPop)[child2]->means[i] = parent1->means[p1counter];
+			included2.insert(parent1->solution[p1counter]);
+		}
+		//parent1->printSol();
+		//parent2->printSol();
+
+		//(*newPop)[child1]->printSol();
+		//(*newPop)[child2]->printSol();
+
+		//std::cout << "\nMix4OK" ;
+		(*newPop)[child1]->CreateDronePath(dronePathSyncSearch, pathCheckEndurance);
+		(*newPop)[child2]->CreateDronePath(dronePathSyncSearch, pathCheckEndurance);
+		//(*newPop)[child1]->printSol();
+		//(*newPop)[child2]->printSol();
+	}
+}
+
+
+void QLGen::newGeneration()
+{
+	std::shuffle(tournamentGroup.begin(), tournamentGroup.end(), rndGen);
+	fitRange = evaluatedPop->front()->fit - evaluatedPop->back()->fit;
+	best = evaluatedPop->front()->fit;
+
+	for (int i = 0; i < newPop->size(); i++)
+	{
+		//Hold elite (the 'n' Best)
+		if (i < eliteSize)
+		{
+			Individual* indPtr = (*newPop)[i];
+			(*newPop)[i] = (*evaluatedPop)[i];
+			(*evaluatedPop)[i] = indPtr;
+
+			//double rnd = (double)rand();
+			//double rnd0_1 = (rnd / RAND_MAX); //0 - 1
+			//int randIdx = (int)rnd % (numVariables - 2) + 1; //1 -10
+			
+			//Mutation
+			double rnd = (double)rndGen(); 
+			//std::cout << "\nRND: " << rnd;
+
+			if ( (rnd / RAND_MAX) < mtRate && i > 3)
+			{
+				
+				int randIdx = (int)rnd % (numVariables - 2) + 1; //1 -10
+
+				//std::cout << "\nrnd:" << rnd << "\nID : " << randIdx << " i : " <<i;
+
+				if (i % 2 == 0)
+				{
+					(*newPop)[i]->means[randIdx] = 1 * nodes[randIdx].hasDroneAcess;// !(*newPop)[i]->means[randIdx];
+					(*newPop)[i]->CreateDronePath(dronePathSyncSearch, pathCheckEndurance);
+				}
+				else
+				{
+					//Swap Mutation
+					if (randIdx != numVariables - 2)
+					{
+						int bak = (*newPop)[i]->solution[randIdx + 1];
+						(*newPop)[i]->solution[randIdx + 1] = (*newPop)[i]->solution[randIdx];
+						(*newPop)[i]->solution[randIdx] = bak;
+					}
+					else
+					{
+						int bak = (*newPop)[i]->solution[randIdx -1];
+						(*newPop)[i]->solution[randIdx - 1] = (*newPop)[i]->solution[randIdx];
+						(*newPop)[i]->solution[randIdx] = bak;
+
+					}
+				}
+				(*newPop)[i]->CreateDronePath(dronePathSyncSearch, pathCheckEndurance);
+			}
+
+
+		}
+		else if (i < csSize + eliteSize)
+		{
+			//Make CrossOvers
+			childrenFromCrossOver(i, i+1, "mix1", "roullete");// "tournament"); //roullete			
+			i++;
+
+			//Mutation
+			double rnd = (double)rndGen();
+			//std::cout << "\nRND: " << rnd;
+
+			if ((rnd / RAND_MAX) < mtRate )
+			{
+
+				int randIdx = (int)rnd % (numVariables - 2) + 1; //1 -10
+
+				//std::cout << "\nrnd:" << rnd << "\nID : " << randIdx << " i : " <<i;
+
+				if (i % 2 == 0)
+				{
+					(*newPop)[i]->means[randIdx] = 1 * nodes[randIdx].hasDroneAcess;// !(*newPop)[i]->means[randIdx];
+					(*newPop)[i]->CreateDronePath(dronePathSyncSearch, pathCheckEndurance);
+				}
+				else
+				{
+					//Swap Mutation
+					if (randIdx != numVariables - 2)
+					{
+						int bak = (*newPop)[i]->solution[randIdx + 1];
+						(*newPop)[i]->solution[randIdx + 1] = (*newPop)[i]->solution[randIdx];
+						(*newPop)[i]->solution[randIdx] = bak;
+					}
+					else
+					{
+						int bak = (*newPop)[i]->solution[randIdx - 1];
+						(*newPop)[i]->solution[randIdx - 1] = (*newPop)[i]->solution[randIdx];
+						(*newPop)[i]->solution[randIdx] = bak;
+
+					}
+				}
+				(*newPop)[i]->CreateDronePath(dronePathSyncSearch, pathCheckEndurance);
+			}
+		}
+		else
+		{			
+			
+			std::shuffle((*newPop)[i]->solution.begin() + 1, (*newPop)[i]->solution.end() - 1, rndGen);
+			for (int j = 0; j < numVariables; j++)
+			{
+				(*newPop)[i]->means[j] = (rndGen() % 2) * nodes[j].hasDroneAcess;
+			}
+			//(*newPop)[i]->solution = std::vector<int>{ 0,5,7,2,6,1,8,9,4,3,10,11 };
+			(*newPop)[i]->CreateDronePath(dronePathSyncSearch, pathCheckEndurance);
+		}
+	}
+}
+
+QLGen::~QLGen()
+{
+
+}
+
+void runQLGen(QLGen* testGen, int generations, int seed, std::string problemName)
+{
+	std::stringstream generationsResult;	
+			
+	mtx.lock();
+	std::cout << "\nSeed: " << seed << " -> Generations: " << generations;
+	mtx.unlock();
+
+	testGen->seed = seed;
+	testGen->genFirstPopulation("random");		
+
+	//Proccess First Population
+	testGen->processPopulation("TSPD");	
+	//testGen->processPopulation("TSPD");
+	
+	// Start measuring time
+	auto begin = std::chrono::high_resolution_clock::now();
+
+	//Iterate over generations
+	for (int g = 1; g <= generations; g++)
+	{
+		//for (int i = 0; i < indsPrint; i++)	(*testGen->evaluatedPop)[i]->printSol();
+
+		//std::cout << "\n\nAntes:";
+		//for (int i = 0; i < (*testGen->evaluatedPop)[i]->solution.size(); i++) (*testGen->evaluatedPop)[i]->printSol();
+				
+		testGen->newGeneration();
+		testGen->processPopulation("TSPD");
+						
+		if (saveGenerations) generationsResult << testGen->evaluatedPop->front()->fit << ";";
+
+		if (printResults)
+		{						
+			//Print Population
+			if (indsPrint > 0) std::cout << "\nGeneration: " << g;
+			for (int i = 0; i < indsPrint; i++)	(*testGen->evaluatedPop)[i]->printSol();
+
+			if ((*testGen->evaluatedPop)[0]->fit > bestAll && (*testGen->evaluatedPop)[0]->penaulty == 0)
+			{
+				//std::cout << "\nSeed:" << seed;
+				(*testGen->evaluatedPop)[0]->printSol();
+				std::cout << " - in: " << g;
+				bestAll = (*testGen->evaluatedPop)[0]->fit;
+				testGen->bestIn = g;
+			}
+		}
+	}
+
+	// Stop measuring time and calculate the elapsed time
+	auto end = std::chrono::high_resolution_clock::now();
+	auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);	
+
+	mtx.lock();	
+	
+	//for (int i = 0; i < indsPrint; i++)	(*testGen->evaluatedPop)[i]->printSol();
+	
+	std::cout << "\nSeed: " << seed << " -> " << testGen->evaluatedPop->front()->fit << "(" << testGen->evaluatedPop->front()->penaulty << ")" << " Time: " << elapsed.count() * 1e-9 << " sec";
+	testGen->evaluatedPop->front()->printSol();	
+
+	if (saveGenerations)
+	{
+		ofstream myfile;
+		myfile.open(resultsPath + problem + "_generations.csv", std::ios::app);
+		myfile << "\n" << generationsResult.str();
+		myfile.close();
+	}
+
+	if (saveMain)
+	{
+		ofstream myfile;
+		myfile.open(resultsPath + problem + "_main.csv", std::ios::app);		
+		for (int i = 0; i < indsPrint; i++)
+		{
+			myfile << "\n" << seed << ";" << i << ";" << testGen->bestIn << ";" << (*testGen->evaluatedPop)[i]->getSolutionCsv();
+		}		
+		myfile.close();
+	}
+
+	mtx.unlock();	 
+}
+
+
+int main()
+{
+		
+	std::vector<int> tests = { 437, 440, 443 };
+	std::vector<std::string> problems;
+			
+	printResults = true;
+	saveGenerations = false;
+	saveMain = true;
+	indsPrint = 10;
+	
+	int generations = 1000;
+	int populationSize = 30000;
+	int solutionSize = 12;
+	int seeds = 1; // Will be the number of threads
+
+	bool pathSearch = false;
+	bool pathCheckEndurance = false;
+	int localSearchN[2] = { 10,10 };
+	bool localSearchParams[2] = { false,false };
+	
+	
+	std::cout << "\nRunning: ";
+	/*for (auto test : tests)
+	{
+		for (int i = 1; i <= 12; i++)
+		{
+			problems.push_back(std::to_string(test) + "v" + std::to_string(i));
+			std::cout << " | " << std::to_string(test) + "v" + std::to_string(i);
+		}
+	}*/
+	
+	problems = { "437v6","437v9","437v10","437v12","440v6","440v7","440v8","440v9","443v5","443v6","443v7","443v8","443v9","443v10","443v11"};
+	problems = { "437v2" };
+
+	for (auto p : problems)
+	{
+		std::cout << p << ",";
+	}
+
+	for (auto pb : problems)
+	{		
+		problem = pb;
+		
+		std::cout << "\n\nStarting Problem: " << problem;
+		
+		if (saveGenerations)
+		{
+			std::ofstream myfile;
+			myfile.open(resultsPath + problem + "_generations.csv");
+			for (int g = 0; g < generations; g++) myfile << g << ";";
+			myfile.close();
+		}
+
+		if (saveMain)
+		{
+			ofstream myfile;
+			myfile.open(resultsPath + problem + "_main.csv");
+
+			myfile << "seed;n;bestIn;fit;syncLoss;penaulty;";
+			for (int i = 0; i < solutionSize; i++)	myfile << "sol" << i << ";";
+			myfile << "means;";
+			for (int i = 0; i < solutionSize; i++)	myfile << "mean" << i << ";";
+			myfile << "dronepath;";
+			for (int i = 0; i < solutionSize; i++)	myfile << "dp" << i << ".0;" << "dp" << i << ".1;";
+
+			myfile.close();
+		}
+
+		std::vector<std::thread*> theads;
+
+		for (int seed = 0; seed < seeds; seed++)
+		{
+			QLGen* testGen = new QLGen(populationSize, solutionSize, 0, 11, seed, problem, pathProblems);
+			testGen->dronePathSyncSearch = pathSearch;
+			testGen->localSearchNum[0] = localSearchN[0];
+			testGen->localSearchNum[1] = localSearchN[1];
+			testGen->localSearchParams[0] = localSearchParams[0];
+			testGen->localSearchParams[1] = localSearchParams[1];
+			testGen->pathCheckEndurance = pathCheckEndurance;
+
+			theads.push_back(new std::thread(runQLGen, testGen, generations, seed, problem));
+		}
+
+		for (auto& t : theads)
+		{
+			t->join();
+		}
+	}
+	return 0;
+}

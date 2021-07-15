@@ -10,6 +10,7 @@
 #include <thread>        
 #include <future>
 #include <mutex>
+#include <unordered_map>
 
 std::mutex mtx;
 
@@ -27,21 +28,35 @@ class QGen
 {
 public:
 
-	QGen(int populationSize, double mutationRate, double csRate, int numVariables, int varMin, int varMax, int seed, std::string problemPath);
+	QGen(int populationSize, int numVariables, int varMin, int varMax, int seed, std::string problemPath);
 	~QGen();
 	void genFirstPopulation(std::string option);
 	void processPopulation(std::string problemType);
+	std::pair<double, double> fitFromSolutionTable(std::string cod);
+	
+	void childrenFromCrossOver( int ind1, int ind2, std::string type = "swap" );
 
 	void newGeneration();
+	Individual* selection(std::string method, Individual* anotherParent = nullptr);
 	
 	int populationSize;
 	double mtRate;
-	int csRate;
-	int elite;
+	double csProportion, eliteProportion;
+	int csSize, eliteSize, csSearchRate;
+
 	int best;
 	double varMax;
 	double varMin;
 	int numVariables;
+		
+	double tournamentP = 0.5;
+	double tournamentProportion = 0.7;	
+	int tournamentSize;
+
+	std::vector<int> tournamentGroup;
+
+	std::unordered_map<std::string, std::pair<double,double>> solutionTable;
+
 	std::string init;
 	int seed;
 	std::string problemPath;
@@ -51,6 +66,7 @@ public:
 
 	std::random_device rd;
 	std::mt19937 rndGen;
+	int lastKnown = 0;
 
 	std::vector<Individual*>* newPop;
 	std::vector<Individual*>* evaluatedPop;

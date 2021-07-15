@@ -1,0 +1,30 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/ieav/share/QLGen/QLGen/individual.cpp
+individual.h
+/home/ieav/share/QLGen/QLGen/individual.h
+
+/home/ieav/share/QLGen/QLGen/individual.h
+iostream
+-
+sstream
+-
+vector
+-
+array
+-
+random
+-
+string
+-
+algorithm
+-
+chrono
+-
+
