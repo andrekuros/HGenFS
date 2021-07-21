@@ -7,7 +7,7 @@ Individual::Individual(std::vector<std::vector<double>>* timeTruck, std::vector<
 	rndGen.seed(seed);
 	solution.resize(size);
 	means.resize(size);
-	hasDep.resize(size);
+	//hasDep.resize(size);
 	dronePath.resize(size);
 	for (auto& pair : dronePath) 
 	{
@@ -48,19 +48,27 @@ std::pair<double,double>  Individual::getSyncDiff(int solIdx)
 		(*timeDrone)[solution[solIdx]][solution[dronePath[solIdx][1]]]; //1 minute SL (*Sl do mnot contribute to endurance computation)
 
 	double syncLostTime = 0.0;
+	double syncInLast = 0.0;
+
 	//Check Sync
 	if (droneTravelTime > truckTravelTime || dronePath[solIdx][1] == solution.size() - 1)
 	{
-		//if (droneTravelTime > truckTravelTime)
+		if (droneTravelTime > truckTravelTime)
+		{
 			syncLostTime = fabs(droneTravelTime - truckTravelTime);
-
-		//if (droneTravelTime < truckTravelTime) //sincronization on the depot with drone waiting
+		}
+		else
+		{		
 			//droneTravelTime = droneTravelTime + syncLostTime;
+			syncLostTime = truckTravelTime - droneTravelTime + 1;
+			syncLostTime = syncLostTime < 0 ? syncLostTime : 0;
+			 
+		}
 
 	}
 	else
 	{
-		if (dronePath[solIdx][0] != 0) //if departure from depot, drone delay the dep to dot not wait
+		if (dronePath[solIdx][0] != 0 ) //if departure from depot, drone delay the dep to dot not wait
 			droneTravelTime = truckTravelTime; //Drone need to wait the truck		
 	}
 
@@ -73,9 +81,9 @@ std::pair<double,double>  Individual::getSyncDiff(int solIdx)
 		thisPenaulty =  (droneTravelTime + 1 - droneEndurance) * penaultyFactor;
 	}
 
-	if ((truckTravelTime + 1 + hasDep[dronePath[solIdx][1]] * 0 > droneEndurance) && dronePath[solIdx][1] != (solution.size() - 1)) //hasDep from HGA condition????
+	if ((truckTravelTime + 1 > droneEndurance) && dronePath[solIdx][1] != (solution.size() - 1)) //hasDep from HGA condition????
 	{
-		thisPenaulty += (truckTravelTime + 1 + hasDep[dronePath[solIdx][1]] * 0 - droneEndurance) * penaultyFactor;
+		thisPenaulty += (truckTravelTime + 1 - droneEndurance) * penaultyFactor;
 	}
 	penaulty += thisPenaulty;
 	syncLoss += syncLostTime;
@@ -102,10 +110,8 @@ bool Individual::CreateDronePath(bool dronePathLocalSearch, bool checkDroneEndur
 	int lastLand = -1;
 	
 	//Reset dep control to be able to control Sr + Sl in the asame node (truckRestriction)
-	for (int i = 0; i < hasDep.size(); i++) hasDep[i] = false;
+	//for (int i = 0; i < hasDep.size(); i++) hasDep[i] = false;
 	droneFromDepot = false;
-
-	
 		
 	for (int i = 1; i < solution.size() - 1; i++)
 	{
@@ -201,7 +207,7 @@ bool Individual::CreateDronePath(bool dronePathLocalSearch, bool checkDroneEndur
 							dronePath[i][0] = droneRouteAlternative[k].first;
 							dronePath[i][1] = droneRouteAlternative[k].second;
 
-							hasDep[droneRouteAlternative[k].first] = true;
+							//hasDep[droneRouteAlternative[k].first] = true;
 
 							if (droneRouteAlternative[k].first == 0) droneFromDepot = true;
 
@@ -213,7 +219,7 @@ bool Individual::CreateDronePath(bool dronePathLocalSearch, bool checkDroneEndur
 							dronePath[i][0] = droneRouteAlternative[idxBestdiff].first;
 							dronePath[i][1] = droneRouteAlternative[idxBestdiff].second;
 
-							hasDep[droneRouteAlternative[idxBestdiff].first] = true;
+							//hasDep[droneRouteAlternative[idxBestdiff].first] = true;
 
 							if (droneRouteAlternative[idxBestdiff].first == 0) droneFromDepot = true;
 
@@ -228,7 +234,7 @@ bool Individual::CreateDronePath(bool dronePathLocalSearch, bool checkDroneEndur
 					dronePath[i][0] = droneRouteAlternative[0].first;
 					dronePath[i][1] = droneRouteAlternative[0].second;
 
-					hasDep[droneRouteAlternative[0].first] = true;
+					//hasDep[droneRouteAlternative[0].first] = true;
 
 					if (droneRouteAlternative[0].first == 0) droneFromDepot = true;
 

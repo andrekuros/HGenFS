@@ -17,6 +17,9 @@
 
 std::mutex mtx;
 double bestAll = 9999;
+
+std::vector<std::string> bestList;
+std::vector<std::string> evolList;
 class node
 {
 public:
@@ -29,7 +32,9 @@ public:
 bool printResults;
 bool saveGenerations;
 bool saveMain;
+bool saveEvolution;
 int indsPrint;
+double stopTime;
 
 std::string resultsPath = ""; // "~/share/QLGen/QLGen/results/";
 std::string pathProblems = "problems/FSTSP_10_customer_problems/20140810T123";
@@ -61,7 +66,7 @@ public:
 
 	int populationSize;
 	double mtRate{ 0.05 };
-	double csProportion{ 0.80 };
+	double csProportion{ 0.70 };
 	int csSize = (int)(populationSize * csProportion);
 	
 	bool dronePathSyncSearch = false;

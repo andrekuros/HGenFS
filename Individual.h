@@ -22,7 +22,7 @@ public:
 	std::vector<int> means; //0 for truck and 1 for drone (for a while)	
 
 	std::vector<std::vector<int>> dronePath; //Constumer served by drone + dep and land points	
-	std::vector<bool> hasDep; 
+	//std::vector<bool> hasDep; 
 
 	//Configurations
 	double droneEndurance;

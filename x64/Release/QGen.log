@@ -1,16 +1,3 @@
-﻿E:\Programas\VS2019\MSBuild\Microsoft\VC\v160\Microsoft.CppBuild.targets(505,5): warning MSB8004: o diretório Output não termina com uma barra à direita. Essa instância de compilação adicionará a barra conforme necessário para permitir a avaliação adequada do Diretório Output.
-  individual.cpp
+﻿C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\Microsoft.CppBuild.targets(505,5): warning MSB8004: o diretório Output não termina com uma barra à direita. Essa instância de compilação adicionará a barra conforme necessário para permitir a avaliação adequada do Diretório Output.
   QLGen.cpp
-\\10.132.65.55\Share\QLGen\QLGen\QLGen.h(64,2): error C2632: 'bool' seguido por 'double' é inválido
-\\10.132.65.55\Share\QLGen\QLGen\QLGen.h(64,23): warning C4305: 'inicializando': truncamento de 'int' para 'bool'
-\\10.132.65.55\Share\QLGen\QLGen\QLGen.cpp(149,25): error C2065: 'dronePathSyncSearch': identificador não declarado
-\\10.132.65.55\Share\QLGen\QLGen\QLGen.cpp(163,25): error C2065: 'dronePathSyncSearch': identificador não declarado
-\\10.132.65.55\Share\QLGen\QLGen\QLGen.cpp(266,38): error C2065: 'dronePathSyncSearch': identificador não declarado
-\\10.132.65.55\Share\QLGen\QLGen\QLGen.cpp(270,38): error C2065: 'dronePathSyncSearch': identificador não declarado
-\\10.132.65.55\Share\QLGen\QLGen\QLGen.cpp(384,38): error C2065: 'dronePathSyncSearch': identificador não declarado
-\\10.132.65.55\Share\QLGen\QLGen\QLGen.cpp(385,38): error C2065: 'dronePathSyncSearch': identificador não declarado
-\\10.132.65.55\Share\QLGen\QLGen\QLGen.cpp(425,36): error C2660: 'Individual::CreateDronePath': função não recebe 0 argumentos
-\\10.132.65.55\Share\QLGen\QLGen\individual.h(44,7): message : consulte a declaração de 'Individual::CreateDronePath'
-\\10.132.65.55\Share\QLGen\QLGen\QLGen.cpp(444,35): error C2065: 'dronePathSyncSearch': identificador não declarado
-\\10.132.65.55\Share\QLGen\QLGen\QLGen.cpp(464,34): error C2065: 'dronePathSyncSearch': identificador não declarado
-  Gerando Código...
+  QGen.vcxproj -> Y:\QLGen\QLGen\bin\QGen.exe
