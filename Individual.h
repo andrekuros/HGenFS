@@ -15,7 +15,7 @@ class Individual
 
 public:
 
-	Individual(std::vector<std::vector<double>>* timeTruck, std::vector<std::vector<double>>* timeDrone, double droneEndurance, int dronesAvailable, int size, double seed);
+	Individual(std::vector<std::vector<double>>* timeTruck, std::vector<std::vector<double>>* timeDrone, double droneEndurance, double sl, double sr, int dronesAvailable, int size, double seed);
 
 	//Params that define the Individual Solution
 	std::vector<int> solution; //General Path
@@ -25,7 +25,7 @@ public:
 	//std::vector<bool> hasDep; 
 
 	//Configurations
-	double droneEndurance;
+	double droneEndurance, sr,sl;
 	int dronesAvailable;
 	int size;
 	bool droneFromDepot = false;

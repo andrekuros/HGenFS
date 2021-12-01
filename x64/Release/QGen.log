@@ -1,3 +1,4 @@
-﻿C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\Microsoft.CppBuild.targets(505,5): warning MSB8004: o diretório Output não termina com uma barra à direita. Essa instância de compilação adicionará a barra conforme necessário para permitir a avaliação adequada do Diretório Output.
-  QLGen.cpp
-  QGen.vcxproj -> Y:\QLGen\QLGen\bin\QGen.exe
+﻿C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\Microsoft.CppBuild.targets(499,5): warning MSB8004: o diretório Output não termina com uma barra à direita. Essa instância de compilação adicionará a barra conforme necessário para permitir a avaliação adequada do Diretório Output.
+C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\Microsoft.CppBuild.targets(513,5): warning MSB8028: O diretório intermediário (x64\Release\) contém arquivos compartilhados de outro projeto (QGen.vcxproj). Isso pode levar a um comportamento incorreto de limpeza e recompilação.
+  HGenFS.cpp
+  QGen.vcxproj -> D:\Projetos\GITHUB\HGenFS\bin\HGenFS.exe

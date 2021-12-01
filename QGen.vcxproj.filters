@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="QLGen.cpp">
+    <ClCompile Include="HGenFS.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="individual.cpp">
@@ -23,7 +23,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="QLGen.h">
+    <ClInclude Include="HGenFS.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="individual.h">

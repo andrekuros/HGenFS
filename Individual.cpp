@@ -1,8 +1,8 @@
 #include "individual.h"
 
 
-Individual::Individual(std::vector<std::vector<double>>* timeTruck, std::vector<std::vector<double>>* timeDrone, double droneEndurance, int dronesAvailable, int size, double seed) :
-	timeDrone(timeDrone), timeTruck(timeTruck), droneEndurance(droneEndurance), dronesAvailable(dronesAvailable), size(size)
+Individual::Individual(std::vector<std::vector<double>>* timeTruck, std::vector<std::vector<double>>* timeDrone, double droneEndurance, double sl, double sr, int dronesAvailable, int size, double seed) :
+	timeDrone(timeDrone), timeTruck(timeTruck), droneEndurance(droneEndurance), dronesAvailable(dronesAvailable), size(size), sr(sr), sl(sl)
 {
 	rndGen.seed(seed);
 	solution.resize(size);
@@ -45,7 +45,7 @@ std::pair<double,double>  Individual::getSyncDiff(int solIdx)
 
 	//Time to the Drone fly from A to Cotumer to C plus 1 minutes (launch and retrieve);
 	double droneTravelTime = (*timeDrone)[solution[dronePath[solIdx][0]]][solution[solIdx]] +
-		(*timeDrone)[solution[solIdx]][solution[dronePath[solIdx][1]]]; //1 minute SL (*Sl do mnot contribute to endurance computation)
+		(*timeDrone)[solution[solIdx]][solution[dronePath[solIdx][1]]]; //1 minute SL (*Sl do not contribute to endurance computation)
 
 	double syncLostTime = 0.0;
 	double syncInLast = 0.0;
@@ -60,7 +60,7 @@ std::pair<double,double>  Individual::getSyncDiff(int solIdx)
 		else
 		{		
 			//droneTravelTime = droneTravelTime + syncLostTime;
-			syncLostTime = truckTravelTime - droneTravelTime + 1;
+			syncLostTime = truckTravelTime - droneTravelTime + sr;
 			syncLostTime = syncLostTime < 0 ? syncLostTime : 0;
 			 
 		}
@@ -75,24 +75,24 @@ std::pair<double,double>  Individual::getSyncDiff(int solIdx)
 	//(dronePath[solIdx][1] != (solution.size() - 1))? 1 : 0
 	//Add Penaulties
 	double thisPenaulty = 0;
-	if (((droneTravelTime + 1 > droneEndurance) && (dronePath[solIdx][1] != (solution.size() - 1))) 
-		|| ((droneTravelTime + 1 > droneEndurance) && (dronePath[solIdx][1] == (solution.size() - 1))))
+	if (((droneTravelTime + sr > droneEndurance) && (dronePath[solIdx][1] != (solution.size() - 1))) 
+		|| ((droneTravelTime + sr > droneEndurance) && (dronePath[solIdx][1] == (solution.size() - 1))))
 	{		
-		thisPenaulty =  (droneTravelTime + 1 - droneEndurance) * penaultyFactor;
+		thisPenaulty =  (droneTravelTime + sr - droneEndurance) * penaultyFactor;
 	}
 
-	if ((truckTravelTime + 1 > droneEndurance) && dronePath[solIdx][1] != (solution.size() - 1)) //hasDep from HGA condition????
+	if ((truckTravelTime + sr > droneEndurance) && dronePath[solIdx][1] != (solution.size() - 1)) //hasDep from HGA condition????
 	{
-		thisPenaulty += (truckTravelTime + 1 - droneEndurance) * penaultyFactor;
+		thisPenaulty += (truckTravelTime + sr - droneEndurance) * penaultyFactor;
 	}
 	penaulty += thisPenaulty;
 	syncLoss += syncLostTime;
 
-	double adicionalTime = 1.0; //RecoverTime
+	double adicionalTime = sr; //RecoverTime
 
 	if (dronePath[solIdx][0] != 0)
 	{
-		adicionalTime += 1.0; //only SR (SL does not count) 
+		adicionalTime += sr; //only SR (SL does not count) 
 	}
 
 	/*if (dronePath[solIdx][1] != (solution.size() - 1))
