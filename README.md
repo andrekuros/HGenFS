@@ -1,9 +1,9 @@
-# QLGen-TSPD
-Q-Learning based Genetic Algorithm to solve TSP with Drone problems
+# HGenFS
+Hybrid Genetic Algorithm to solve FSTSPD
 
-This is an academic project that aims to implement an Genetic Algorithm that use Q-Learning to improve their performance when optimizing TSPD problems.
+This is an academic project that aims to implement an Genetic Algorithm with heuristics to improve their performance when optimizing FSTSPD problems.
 
 # Status:
-- C++ QLGen is working, but whithout Reinforcement Learning yet.
-- AMPL exact solution is implemented, but still have some problems.
+- C++ HGenFS is working well (similar to state of art algorithms) for 10 clients datasets.
+- For 100 clients the optimizations is not good yet.
 
